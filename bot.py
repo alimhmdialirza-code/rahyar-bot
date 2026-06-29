@@ -23,7 +23,8 @@ def forward_to_admin(user_data, subject, detail=""):
 
 👤 نام: {user_data.get('name', '')} {user_data.get('family', '')}
 📞 تماس: {user_data.get('phone', '')}
-🪪 کد ملی: {user_data.get('national_i 'ثبت نشده')}
+🪪 کد ملی: {user_data.get('national_id', 'ثبت نشده')}
+
 
 📌 موضوع: {subject}
 {detail}"""
