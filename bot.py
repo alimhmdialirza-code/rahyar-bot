@@ -33,7 +33,10 @@ def forward_to_admin(user_data, subject, detail=""):
 def show_main_menu(chat_id, name=""):
     greeting = f"{name} عزیز، " if name else ""
     send_message(chat_id, f"""{greeting}لطفاً یکی از خدمات زیر را انتخاب کنید:
-
+def reset_user(chat_id):
+    if chat_id in users:
+        del users[chat_id]
+        
 1️⃣ سوال حقوقی دارم
 2️⃣ تنظیم سند می‌خوام
 3️⃣ پرونده دارم
