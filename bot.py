@@ -1,5 +1,7 @@
+cat > /home/claude/bot.py << 'ENDOFFILE'
 import requests
 import time
+import json
 
 TOKEN = "741504271:glrJAftdMTf2g10n8GCGAN2iFPeveKDehc8"
 API_URL = f"https://tapi.bale.ai/bot{TOKEN}"
@@ -9,13 +11,29 @@ CARD_NUMBER = "6221061237894102"
 users = {}
 
 
-def send_message(chat_id, text):
+def send_message(chat_id, text, reply_markup=None):
     url = f"{API_URL}/sendMessage"
-    data = {"chat_id": chat_id, "text": text}
+    data = {
+        "chat_id": chat_id,
+        "text": text
+    }
+    if reply_markup:
+        data["reply_markup"] = json.dumps(reply_markup)
     try:
         requests.post(url, data=data, timeout=10)
     except Exception as e:
         print(f"خطا در ارسال پیام: {e}")
+
+
+def make_keyboard(buttons):
+    keyboard = []
+    for row in buttons:
+        keyboard.append([{"text": btn} for btn in row])
+    return {"keyboard": keyboard, "resize_keyboard": True, "one_time_keyboard": False}
+
+
+def remove_keyboard():
+    return {"remove_keyboard": True}
 
 
 def forward_to_admin(user_data, subject, detail=""):
@@ -32,19 +50,15 @@ def forward_to_admin(user_data, subject, detail=""):
 
 def show_main_menu(chat_id, name=""):
     greeting = f"{name} عزیز، " if name else ""
-    send_message(chat_id, f"""{greeting}لطفاً یکی از خدمات زیر را انتخاب کنید:
-        
-1️⃣ سوال حقوقی دارم
-2️⃣ تنظیم سند می‌خوام
-3️⃣ پرونده دارم
-4️⃣ پیگیری پرداخت
-5️⃣ قیمت‌ها و خدمات
+    keyboard = make_keyboard([
+        ["❓ سوال حقوقی دارم"],
+        ["📄 تنظیم سند می‌خوام"],
+        ["⚖️ پرونده دارم"],
+        ["💰 پیگیری پرداخت"],
+        ["📋 قیمت‌ها و خدمات"]
+    ])
+    send_message(chat_id, f"{greeting}لطفاً یکی از خدمات زیر را انتخاب کنید:", keyboard)
 
-عدد مورد نظر را بفرستید:""")
-
-def reset_user(chat_id):
-    if chat_id in users:
-        del users[chat_id]
 
 def handle_registration(chat_id, text, step):
     if step == "get_name":
@@ -71,262 +85,48 @@ def handle_registration(chat_id, text, step):
 
 
 def handle_main_menu(chat_id, text):
-    if text == "1":
+    if "سوال" in text:
         users[chat_id]["step"] = "question_menu"
-        send_message(chat_id, """❓ نوع سوال خود را انتخاب کنید:
+        keyboard = make_keyboard([
+            ["💬 پرسش عمومی (۵۰ هزار تومان)"],
+            ["🔍 پرسش تخصصی (۵۰۰ هزار تومان)"],
+            ["🔙 بازگشت"]
+        ])
+        send_message(chat_id, "❓ نوع سوال خود را انتخاب کنید:", keyboard)
 
-1️⃣ پرسش عمومی (۵۰ هزار تومان)
-2️⃣ پرسش تخصصی (۵۰۰ هزار تومان)
-
-عدد مورد نظر را بفرستید:
-(برای بازگشت عدد ۰ بزنید)""")
-
-    elif text == "2":
+    elif "سند" in text:
         users[chat_id]["step"] = "document_menu"
-        send_message(chat_id, """📄 نوع سند مورد نیاز را انتخاب کنید:
+        keyboard = make_keyboard([
+            ["📄 دادخواست (۶۹۷ هزار)"],
+            ["📄 شکواییه (۹۴۹ هزار)"],
+            ["📄 اظهارنامه (۴۹۷ هزار)"],
+            ["📄 قرارداد (از ۷۹۹ هزار)"],
+            ["📄 لایحه حقوقی (۶۹۷ هزار)"],
+            ["📄 لایحه کیفری (۹۴۹ هزار)"],
+            ["🔙 بازگشت"]
+        ])
+        send_message(chat_id, "📄 نوع سند مورد نیاز را انتخاب کنید:", keyboard)
 
-1️⃣ دادخواست (۶۹۷ هزار تومان)
-2️⃣ شکواییه (۹۴۹ هزار تومان)
-3️⃣ اظهارنامه (۴۹۷ هزار تومان)
-4️⃣ قرارداد (از ۷۹۹ هزار تومان)
-5️⃣ لایحه حقوقی (۶۹۷ هزار تومان)
-6️⃣ لایحه کیفری (۹۴۹ هزار تومان)
-
-عدد مورد نظر را بفرستید:
-(برای بازگشت عدد ۰ بزنید)""")
-
-    elif text == "3":
+    elif "پرونده" in text:
         users[chat_id]["step"] = "case_menu"
-        send_message(chat_id, """⚖️ نوع پرونده خود را انتخاب کنید:
+        keyboard = make_keyboard([
+            ["⚖️ داوری"],
+            ["👨‍💼 وکالت مدنی (مراجع شبه‌قضایی)"],
+            ["🔙 بازگشت"]
+        ])
+        send_message(chat_id, "⚖️ نوع پرونده خود را انتخاب کنید:", keyboard)
 
-1️⃣ داوری
-2️⃣ وکالت مدنی (مراجع شبه‌قضایی)
-
-عدد مورد نظر را بفرستید:
-(برای بازگشت عدد ۰ بزنید)""")
-
-    elif text == "4":
+    elif "پیگیری" in text:
         users[chat_id]["step"] = "payment_follow"
-        send_message(chat_id, """💰 پیگیری پرداخت
+        keyboard = make_keyboard([["🔙 بازگشت"]])
+        send_message(chat_id, "💰 لطفاً تصویر رسید پرداخت خود را ارسال کنید:", keyboard)
 
-لطفاً تصویر رسید پرداخت خود را ارسال کنید:
-(برای بازگشت عدد ۰ بزنید)""")
-
-    elif text == "5":
+    elif "قیمت" in text:
         send_message(chat_id, f"""📋 قیمت‌ها و خدمات رهیار قانون
 
 ❓ سوال حقوقی:
 • پرسش عمومی: ۵۰ هزار تومان
-• پرسش تخصصی: ۵۰۰ هزار تومان
-
-📄 تنظیم سند:
-• دادخواست: ۶۹۷ هزار تومان
-• شکواییه: ۹۴۹ هزار تومان
-• اظهارنامه: ۴۹۷ هزار تومان
-• قرارداد: از ۷۹۹ هزار تومان
-• لایحه حقوقی: ۶۹۷ هزار تومان
-• لایحه کیفری: ۹۴۹ هزار تومان
-
-⚖️ پرونده (توافقی):
-• داوری
-• وکالت مدنی
-
-📞 تماس: 09931012756
-
-برای بازگشت به منو عدد ۰ بزنید:""")
-
-    else:
-        send_message(chat_id, "لطفاً یک عدد بین ۱ تا ۵ بفرستید:")
-
-
-def handle_question_menu(chat_id, text):
-    if text == "1":
-        users[chat_id]["step"] = "waiting_payment_question"
-        users[chat_id]["question_type"] = "عمومی"
-        users[chat_id]["question_price"] = "۵۰ هزار تومان"
-        send_message(chat_id, f"""✅ پرسش عمومی انتخاب شد
-
-لطفاً مبلغ ۵۰,۰۰۰ تومان به شماره کارت زیر واریز کنید:
-
-💳 {CARD_NUMBER}
-
-بعد از پرداخت، تصویر رسید را ارسال کنید:""")
-
-    elif text == "2":
-        users[chat_id]["step"] = "waiting_payment_question"
-        users[chat_id]["question_type"] = "تخصصی"
-        users[chat_id]["question_price"] = "۵۰۰ هزار تومان"
-        send_message(chat_id, f"""✅ پرسش تخصصی انتخاب شد
-
-لطفاً مبلغ ۵۰۰,۰۰۰ تومان به شماره کارت زیر واریز کنید:
-
-💳 {CARD_NUMBER}
-
-بعد از پرداخت، تصویر رسید را ارسال کنید:""")
-
-    elif text == "0":
-        users[chat_id]["step"] = "main_menu"
-        show_main_menu(chat_id)
-
-    else:
-        send_message(chat_id, "لطفاً عدد ۱ یا ۲ بفرستید:")
-
-
-def handle_document_menu(chat_id, text):
-    documents = {
-        "1": ("دادخواست", "۶۹۷,۰۰۰"),
-        "2": ("شکواییه", "۹۴۹,۰۰۰"),
-        "3": ("اظهارنامه", "۴۹۷,۰۰۰"),
-        "4": ("قرارداد", "۷۹۹,۰۰۰"),
-        "5": ("لایحه حقوقی", "۶۹۷,۰۰۰"),
-        "6": ("لایحه کیفری", "۹۴۹,۰۰۰"),
-    }
-    if text in documents:
-        doc_name, doc_price = documents[text]
-        users[chat_id]["step"] = "waiting_payment_document"
-        users[chat_id]["document_type"] = doc_name
-        users[chat_id]["document_price"] = doc_price
-        send_message(chat_id, f"""✅ {doc_name} انتخاب شد
-
-لطفاً مبلغ {doc_price} تومان به شماره کارت زیر واریز کنید:
-
-💳 {CARD_NUMBER}
-
-بعد از پرداخت، تصویر رسید را ارسال کنید:""")
-
-    elif text == "0":
-        users[chat_id]["step"] = "main_menu"
-        show_main_menu(chat_id)
-
-    else:
-        send_message(chat_id, "لطفاً یک عدد بین ۱ تا ۶ بفرستید:")
-
-
-def handle_case_menu(chat_id, text):
-    if text == "1":
-        users[chat_id]["step"] = "case_detail"
-        users[chat_id]["case_type"] = "داوری"
-        send_message(chat_id, """⚖️ پرونده داوری
-
-لطفاً توضیح مختصری از موضوع پرونده خود بنویسید:""")
-
-    elif text == "2":
-        users[chat_id]["step"] = "case_detail"
-        users[chat_id]["case_type"] = "وکالت مدنی"
-        send_message(chat_id, """👨‍💼 وکالت مدنی (مراجع شبه‌قضایی)
-
-لطفاً توضیح مختصری از موضوع پرونده خود بنویسید:""")
-
-    elif text == "0":
-        users[chat_id]["step"] = "main_menu"
-        show_main_menu(chat_id)
-
-    else:
-        send_message(chat_id, "لطفاً عدد ۱ یا ۲ بفرستید:")
-
-
-def handle_message(message):
-    chat_id = str(message.get("chat", {}).get("id", ""))
-    text = message.get("text", "")
-    photo = message.get("photo")
-
-    if not chat_id:
-        return
-
-    if chat_id not in users:
-        users[chat_id] = {"step": "get_name"}
-        send_message(chat_id, """سلام! 👋
-به ربات رهیار قانون خوش آمدید ⚖️
-
-برای شروع لطفاً نام خود را وارد کنید:""")
-        return
-
-    step = users[chat_id].get("step", "main_menu")
-
-    if text == "0" and step not in ["get_name", "get_family", "get_phone", "get_national_id"]:
-        users[chat_id]["step"] = "main_menu"
-        show_main_menu(chat_id)
-        return
-
-    if step in ["get_name", "get_family", "get_phone", "get_national_id"]:
-        handle_registration(chat_id, text, step)
-
-    elif step == "main_menu":
-        handle_main_menu(chat_id, text)
-
-    elif step == "question_menu":
-        handle_question_menu(chat_id, text)
-
-    elif step == "document_menu":
-        handle_document_menu(chat_id, text)
-
-    elif step == "case_menu":
-        handle_case_menu(chat_id, text)
-
-    elif step == "case_detail":
-        case_type = users[chat_id].get("case_type", "")
-        forward_to_admin(users[chat_id], f"پرونده {case_type}", f"📝 توضیحات: {text}")
-        users[chat_id]["step"] = "main_menu"
-        send_message(chat_id, """✅ درخواست شما ثبت شد
-
-به زودی با شما تماس گرفته می‌شود و هزینه توافق خواهد شد.
-
-برای بازگشت به منو عدد ۰ بزنید:""")
-
-    elif step == "waiting_payment_question":
-        if photo:
-            question_type = users[chat_id].get("question_type", "")
-            question_price = users[chat_id].get("question_price", "")
-            forward_to_admin(users[chat_id], f"پرداخت سوال {question_type} - {question_price}", "📎 رسید پرداخت ارسال شد")
-            users[chat_id]["step"] = "asking_question"
-            send_message(chat_id, "✅ رسید دریافت شد!\n\nحالا سوال خود را بنویسید:")
-        else:
-            send_message(chat_id, "لطفاً تصویر رسید پرداخت را ارسال کنید:")
-
-    elif step == "asking_question":
-        question_type = users[chat_id].get("question_type", "")
-        forward_to_admin(users[chat_id], f"سوال {question_type}", f"❓ سوال: {text}")
-        users[chat_id]["step"] = "main_menu"
-        send_message(chat_id, """✅ سوال شما ثبت شد
-
-به زودی پاسخ داده خواهد شد.
-
-برای بازگشت به منو عدد ۰ بزنید:""")
-
-    elif step == "waiting_payment_document":
-        if photo:
-            doc_type = users[chat_id].get("document_type", "")
-            doc_price = users[chat_id].get("document_price", "")
-            forward_to_admin(users[chat_id], f"پرداخت {doc_type} - {doc_price} تومان", "📎 رسید پرداخت ارسال شد")
-            users[chat_id]["step"] = "document_detail"
-            send_message(chat_id, "✅ رسید دریافت شد!\n\nلطفاً اطلاعات مورد نیاز برای تنظیم سند را بنویسید:")
-        else:
-            send_message(chat_id, "لطفاً تصویر رسید پرداخت را ارسال کنید:")
-
-    elif step == "document_detail":
-        doc_type = users[chat_id].get("document_type", "")
-        forward_to_admin(users[chat_id], f"اطلاعات {doc_type}", f"📝 اطلاعات: {text}")
-        users[chat_id]["step"] = "main_menu"
-        send_message(chat_id, """✅ اطلاعات شما ثبت شد
-
-سند شما در اسرع وقت تنظیم و ارسال خواهد شد.
-
-برای بازگشت به منو عدد ۰ بزنید:""")
-
-    elif step == "payment_follow":
-        if photo:
-            forward_to_admin(users[chat_id], "پیگیری پرداخت", "📎 رسید پرداخت ارسال شد")
-            users[chat_id]["step"] = "main_menu"
-            send_message(chat_id, "✅ رسید شما دریافت شد و بررسی خواهد شد.\n\nبرای بازگشت به منو عدد ۰ بزنید:")
-        else:
-            send_message(chat_id, "لطفاً تصویر رسید پرداخت را ارسال کنید:")
-
-
-def get_updates(offset=0):
-    url = f"{API_URL}/getUpdates"
-    data = {"offset": offset}
-    try:
-        response = requests.post(url, data=data, timeout=10)
+• پرسش تخصصی: ۵۰۰ هزار تومانs.post(url, data=data, timeout=10)
         return response.json()
     except Exception as e:
         print(f"خطا در دریافت آپدیت: {e}")
