@@ -1,7 +1,8 @@
 import requests
 import time
 
-TOKEN = "bot490876:8912cd06-9c68-4190-b95f-b6ece2f883c3"
+TOKEN = "
+76366599:pe/VsYAJDF-CAyoZqS0ZG-dLc5JHGgv{-Pn57bS8y[9-OQHNF2uaMV-EAdWCli2t9-sxh?jTd4N4-y?dZe1T@bw-Qar8U#2zTW-qkf&~Do6wt-6U^3TzF5t9-fmg8h37IUP-7bwz2*aaBt-ovP%ONHM(a-jX$gNZoEBh-tx}W"
 API_URL = f"https://eitaayar.ir/api/{TOKEN}"
 ADMIN_CHAT_ID = "rahyar_ghanon"
 CARD_NUMBER = "6221061237894102"
