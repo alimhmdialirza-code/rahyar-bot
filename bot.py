@@ -2,7 +2,7 @@ import requests
 import time
 
 TOKEN = "741504271:glrJAftdMTf2g10n8GCGAN2iFPeveKDehc8"
-API_URL = "f"https://tapi.bale.ai/bot{TOKEN}"
+API_URL = f"https://tapi.bale.ai/bot{TOKEN}"
 ADMIN_CHAT_ID = "rahyar_ghanon"
 CARD_NUMBER = "6221061237894102"
 
