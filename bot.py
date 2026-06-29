@@ -232,7 +232,6 @@ def handle_message(message):
 
     if not chat_id:
         return
-
     if text == "/reset":
     reset_user(chat_id)
     users[chat_id] = {"step": "get_name"}
