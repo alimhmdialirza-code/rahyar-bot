@@ -1,132 +1,52 @@
-cat > /home/claude/bot.py << 'ENDOFFILE'
-import requests
-import time
-import json
+users[chat_id]["step"] = "asking_question"
+            send_message(chat_id, "✅ رسید دریافت شد!\n\nحالا سوال خود را بنویسید:")
+        else:
+            send_message(chat_id, "لطفاً تصویر رسید پرداخت را ارسال کنید:")
 
-TOKEN = "741504271:glrJAftdMTf2g10n8GCGAN2iFPeveKDehc8"
-API_URL = f"https://tapi.bale.ai/bot{TOKEN}"
-ADMIN_CHAT_ID = "rahyar_ghanon"
-CARD_NUMBER = "6221061237894102"
-
-users = {}
-
-
-def send_message(chat_id, text, reply_markup=None):
-    url = f"{API_URL}/sendMessage"
-    data = {
-        "chat_id": chat_id,
-        "text": text
-    }
-    if reply_markup:
-        data["reply_markup"] = json.dumps(reply_markup)
-    try:
-        requests.post(url, data=data, timeout=10)
-    except Exception as e:
-        print(f"خطا در ارسال پیام: {e}")
-
-
-def make_keyboard(buttons):
-    keyboard = []
-    for row in buttons:
-        keyboard.append([{"text": btn} for btn in row])
-    return {"keyboard": keyboard, "resize_keyboard": True, "one_time_keyboard": False}
-
-
-def remove_keyboard():
-    return {"remove_keyboard": True}
-
-
-def forward_to_admin(user_data, subject, detail=""):
-    text = f"""📨 درخواست جدید از ربات رهیار قانون
-
-👤 نام: {user_data.get('name', '')} {user_data.get('family', '')}
-📞 تماس: {user_data.get('phone', '')}
-🪪 کد ملی: {user_data.get('national_id', 'ثبت نشده')}
-
-📌 موضوع: {subject}
-{detail}"""
-    send_message(ADMIN_CHAT_ID, text)
-
-
-def show_main_menu(chat_id, name=""):
-    greeting = f"{name} عزیز، " if name else ""
-    keyboard = make_keyboard([
-        ["❓ سوال حقوقی دارم"],
-        ["📄 تنظیم سند می‌خوام"],
-        ["⚖️ پرونده دارم"],
-        ["💰 پیگیری پرداخت"],
-        ["📋 قیمت‌ها و خدمات"]
-    ])
-    send_message(chat_id, f"{greeting}لطفاً یکی از خدمات زیر را انتخاب کنید:", keyboard)
-
-
-def handle_registration(chat_id, text, step):
-    if step == "get_name":
-        users[chat_id]["name"] = text
-        users[chat_id]["step"] = "get_family"
-        send_message(chat_id, "نام خانوادگی خود را وارد کنید:")
-
-    elif step == "get_family":
-        users[chat_id]["family"] = text
-        users[chat_id]["step"] = "get_phone"
-        send_message(chat_id, "شماره تماس خود را وارد کنید:")
-
-    elif step == "get_phone":
-        users[chat_id]["phone"] = text
-        users[chat_id]["step"] = "get_national_id"
-        send_message(chat_id, "کد ملی خود را وارد کنید:\n(اختیاری — برای رد کردن عدد ۰ بزنید)")
-
-    elif step == "get_national_id":
-        users[chat_id]["national_id"] = text if text != "0" else "ثبت نشده"
+    elif step == "asking_question":
+        question_type = users[chat_id].get("question_type", "")
+        forward_to_admin(users[chat_id], f"سوال {question_type}", f"❓ سوال: {text}")
         users[chat_id]["step"] = "main_menu"
-        name = users[chat_id]["name"]
-        send_message(chat_id, f"✅ ثبت‌نام شما کامل شد!")
-        show_main_menu(chat_id, name)
+        send_message(chat_id, """✅ سوال شما ثبت شد
+
+به زودی پاسخ داده خواهد شد.
+
+برای بازگشت به منو عدد ۰ بزنید:""")
+
+    elif step == "waiting_payment_document":
+        if photo:
+            doc_type = users[chat_id].get("document_type", "")
+            doc_price = users[chat_id].get("document_price", "")
+            forward_to_admin(users[chat_id], f"پرداخت {doc_type} - {doc_price} تومان", "📎 رسید پرداخت ارسال شد")
+            users[chat_id]["step"] = "document_detail"
+            send_message(chat_id, "✅ رسید دریافت شد!\n\nلطفاً اطلاعات مورد نیاز برای تنظیم سند را بنویسید:")
+        else:
+            send_message(chat_id, "لطفاً تصویر رسید پرداخت را ارسال کنید:")
+
+    elif step == "document_detail":
+        doc_type = users[chat_id].get("document_type", "")
+        forward_to_admin(users[chat_id], f"اطلاعات {doc_type}", f"📝 اطلاعات: {text}")
+        users[chat_id]["step"] = "main_menu"
+        send_message(chat_id, """✅ اطلاعات شما ثبت شد
+
+سند شما در اسرع وقت تنظیم و ارسال خواهد شد.
+
+برای بازگشت به منو عدد ۰ بزنید:""")
+
+    elif step == "payment_follow":
+        if photo:
+            forward_to_admin(users[chat_id], "پیگیری پرداخت", "📎 رسید پرداخت ارسال شد")
+            users[chat_id]["step"] = "main_menu"
+            send_message(chat_id, "✅ رسید شما دریافت شد و بررسی خواهد شد.\n\nبرای بازگشت به منو عدد ۰ بزنید:")
+        else:
+            send_message(chat_id, "لطفاً تصویر رسید پرداخت را ارسال کنید:")
 
 
-def handle_main_menu(chat_id, text):
-    if "سوال" in text:
-        users[chat_id]["step"] = "question_menu"
-        keyboard = make_keyboard([
-            ["💬 پرسش عمومی (۵۰ هزار تومان)"],
-            ["🔍 پرسش تخصصی (۵۰۰ هزار تومان)"],
-            ["🔙 بازگشت"]
-        ])
-        send_message(chat_id, "❓ نوع سوال خود را انتخاب کنید:", keyboard)
-
-    elif "سند" in text:
-        users[chat_id]["step"] = "document_menu"
-        keyboard = make_keyboard([
-            ["📄 دادخواست (۶۹۷ هزار)"],
-            ["📄 شکواییه (۹۴۹ هزار)"],
-            ["📄 اظهارنامه (۴۹۷ هزار)"],
-            ["📄 قرارداد (از ۷۹۹ هزار)"],
-            ["📄 لایحه حقوقی (۶۹۷ هزار)"],
-            ["📄 لایحه کیفری (۹۴۹ هزار)"],
-            ["🔙 بازگشت"]
-        ])
-        send_message(chat_id, "📄 نوع سند مورد نیاز را انتخاب کنید:", keyboard)
-
-    elif "پرونده" in text:
-        users[chat_id]["step"] = "case_menu"
-        keyboard = make_keyboard([
-            ["⚖️ داوری"],
-            ["👨‍💼 وکالت مدنی (مراجع شبه‌قضایی)"],
-            ["🔙 بازگشت"]
-        ])
-        send_message(chat_id, "⚖️ نوع پرونده خود را انتخاب کنید:", keyboard)
-
-    elif "پیگیری" in text:
-        users[chat_id]["step"] = "payment_follow"
-        keyboard = make_keyboard([["🔙 بازگشت"]])
-        send_message(chat_id, "💰 لطفاً تصویر رسید پرداخت خود را ارسال کنید:", keyboard)
-
-    elif "قیمت" in text:
-        send_message(chat_id, f"""📋 قیمت‌ها و خدمات رهیار قانون
-
-❓ سوال حقوقی:
-• پرسش عمومی: ۵۰ هزار تومان
-• پرسش تخصصی: ۵۰۰ هزار تومانs.post(url, data=data, timeout=10)
+def get_updates(offset=0):
+    url = f"{API_URL}/getUpdates"
+    data = {"offset": offset}
+    try:
+        response = requests.post(url, data=data, timeout=10)
         return response.json()
     except Exception as e:
         print(f"خطا در دریافت آپدیت: {e}")
@@ -149,5 +69,5 @@ def main():
         time.sleep(2)
 
 
-if __name__ == "__main__":
+if name == "__main__":
     main()
