@@ -302,7 +302,7 @@ def handle_message(message):
     photo = message.get("photo")
     photo_file_id = None
     if photo:
-    photo_file_id = photo[-1].get("file_id") if isinstance(photo, list) else None
+        photo_file_id = photo[-1].get("file_id") if isinstance(photo, list) else None
     if not chat_id:
         return
         
