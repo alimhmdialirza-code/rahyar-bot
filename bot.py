@@ -271,9 +271,11 @@ def handle_text_message(chat_id, text, photo, photo_file_id=None):
         if photo:
             doc_type = users[chat_id].get("document_type", "")
             doc_price = users[chat_id].get("document_price", "")
-            forward_to_admin(users[chat_id], f"پرداخت {doc_type} - {doc_price} تومان", "📎 رسید پرداخت ارسال شد")
-            users[chat_id]["step"] = "document_detail"
-            send_message(chat_id, "✅ رسید دریافت شد!\n\nلطفاً اطلاعات مورد نیاز برای تنظیم سند را بنویسید:")
+            forward_to_admin(users[chat_id], f"پرداخت {doc_type} - {doc_price} تومان", "📎 رسید پرداخت زیر است")
+            if photo_file_id:
+                forward_photo_to_admin(photo_file_id, f"رسید پرداخت - {doc_type}")
+                users[chat_id]["step"] = "document_detail"
+                send_message(chat_id, "✅ رسید دریافت شد!\n\nلطفاً اطلاعات مورد نیاز برای تنظیم سند را بنویسید:")
         else:
             send_message(chat_id, "لطفاً تصویر رسید پرداخت را ارسال کنید:")
 
