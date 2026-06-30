@@ -298,7 +298,7 @@ def handle_message(message):
     if not chat_id:
         return
         
-if text == "/myid":
+    if text == "/myid":
     send_message(chat_id, f"آیدی چت شما: {chat_id}")
     return
     
