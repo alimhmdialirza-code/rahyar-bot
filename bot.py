@@ -236,7 +236,7 @@ def handle_callback(chat_id, callback_data):
         send_message(chat_id, "👨‍💼 وکالت مدنی\n\nلطفاً توضیح مختصری از موضوع پرونده خود بنویسید:")
 
 
-def handle_text_message(chat_id, text, photo):
+def handle_text_message(chat_id, text, photo, photo_file_id=None):
     step = users[chat_id].get("step", "main_menu")
 
     if step in ["get_name", "get_family", "get_phone", "get_national_id"]:
@@ -323,7 +323,7 @@ def handle_message(message):
 برای شروع لطفاً نام خود را وارد کنید:""")
         return
 
-    handle_text_message(chat_id, text, photo)
+    handle_text_message(chat_id, text, photo, photo_file_id)
 
 
 def handle_update(update):
