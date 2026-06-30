@@ -41,7 +41,7 @@ def forward_to_admin(user_data, subject, detail=""):
 📌 موضوع: {subject}
 {detail}"""
     send_message(ADMIN_CHAT_ID, text)
-def forward_photo_to_admin(chat_id, file_id, caption=""):
+def forward_photo_to_admin(file_id, caption=""):
     url = f"{API_URL}/sendPhoto"
     data = {"chat_id": ADMIN_CHAT_ID, "photo": file_id, "caption": caption}
     try:
