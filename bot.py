@@ -297,9 +297,11 @@ def handle_message(message):
 
     if not chat_id:
         return
+        
 if text == "/myid":
     send_message(chat_id, f"آیدی چت شما: {chat_id}")
     return
+    
     if text == "/reset":
         users[chat_id] = {"step": "get_name"}
         send_message(chat_id, "ثبت‌نام مجدد شروع شد!\n\nلطفاً نام خود را وارد کنید:")
