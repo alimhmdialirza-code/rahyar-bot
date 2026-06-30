@@ -4,7 +4,7 @@ import json
 
 TOKEN = "741504271:glrJAftdMTf2g10n8GCGAN2iFPeveKDehc8"
 API_URL = f"https://tapi.bale.ai/bot{TOKEN}"
-ADMIN_CHAT_ID = "rahyar_ghanon"
+ADMIN_CHAT_ID = "866843345"
 CARD_NUMBER = "6221061237894102"
 
 users = {}
