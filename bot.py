@@ -288,10 +288,12 @@ def handle_text_message(chat_id, text, photo, photo_file_id=None):
 
     elif step == "payment_follow":
         if photo:
-            forward_to_admin(users[chat_id], "پیگیری پرداخت", "📎 رسید پرداخت ارسال شد")
-            users[chat_id]["step"] = "main_menu"
-            keyboard = make_keyboard([[("🔙 بازگشت به منو", "back_main")]])
-            send_message(chat_id, "✅ رسید شما دریافت شد و بررسی خواهد شد.", keyboard)
+            forward_to_admin(users[chat_id], "پیگیری پرداخت", "📎 رسید پرداخت زیر است")
+            if photo_file_id:
+                forward_photo_to_admin(photo_file_id, "رسید پیگیری پرداخت")
+                users[chat_id]["step"] = "main_menu"
+                keyboard = make_keyboard([[("🔙 بازگشت به منو", "back_main")]])
+                send_message(chat_id, "✅ رسید شما دریافت شد و بررسی خواهد شد.", keyboard)
         else:
             send_message(chat_id, "لطفاً تصویر رسید پرداخت را ارسال کنید:")
 
