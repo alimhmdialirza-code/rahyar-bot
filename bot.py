@@ -253,9 +253,10 @@ def handle_text_message(chat_id, text, photo, photo_file_id=None):
         if photo:
             question_type = users[chat_id].get("question_type", "")
             question_price = users[chat_id].get("question_price", "")
-            forward_to_admin(users[chat_id], f"پرداخت سوال {question_type} - {question_price}", "📎 رسید پرداخت ارسال شد")
-            users[chat_id]["step"] = "asking_question"
-            send_message(chat_id, "✅ رسید دریافت شد!\n\nحالا سوال خود را بنویسید:")
+            forward_to_admin(users[chat_id], f"پرداخت سوال {question_type} - {question_price}", "📎 رسید پرداخت زیر است")
+            if photo_file_id:
+                forward_photo_to_admin(photo_file_id, f"رسید پرداخت - {question_type}")
+                users[chat_id]["step"] = "asking_question"
         else:
             send_message(chat_id, "لطفاً تصویر رسید پرداخت را ارسال کنید:")
 
