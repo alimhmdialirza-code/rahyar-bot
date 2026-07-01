@@ -1,0 +1,5 @@
+.env
+rahyar_bot.db
+rahyar_bot.log
+__pycache__/
+*.pyc
