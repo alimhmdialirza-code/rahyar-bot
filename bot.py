@@ -53,6 +53,10 @@ logging.basicConfig(
 )
 logger = logging.getLogger("rahyar_bot")
 
+# وقتی ادمین روی دکمه «پاسخ به این مشتری» بزنه، شماره سفارش موردنظر اینجا موقتاً نگه داشته می‌شه
+# تا پیام بعدی ادمین به‌جای پردازش عادی، مستقیم برای همون مشتری ارسال بشه.
+ADMIN_PENDING_REPLY = {"order_id": None}
+
 
 # ---------------------------------------------------------------------------
 # توابع کمکی ارتباط با API
@@ -96,7 +100,8 @@ def forward_photo_to_admin_with_actions(file_id, caption, order_id):
         [
             ("✅ تایید پرداخت", f"adm_confirm_{order_id}"),
             ("❌ رد پرداخت", f"adm_reject_{order_id}"),
-        ]
+        ],
+        [("📩 پاسخ به این مشتری", f"adm_reply_{order_id}")],
     ])
     data = {
         "chat_id": ADMIN_CHAT_ID,
@@ -123,7 +128,7 @@ def make_keyboard(buttons):
     return {"inline_keyboard": inline_keyboard}
 
 
-def forward_to_admin(user, subject, detail=""):
+def forward_to_admin(user, subject, detail="", order_id=None):
     text = (
         f"📨 درخواست جدید از ربات رهیار قانون\n\n"
         f"👤 نام: {user.get('name', '')} {user.get('family', '')}\n"
@@ -132,7 +137,10 @@ def forward_to_admin(user, subject, detail=""):
         f"🆔 چت آیدی: {user.get('chat_id', '')}\n\n"
         f"📌 موضوع: {subject}\n{detail}"
     )
-    return send_message(ADMIN_CHAT_ID, text)
+    keyboard = None
+    if order_id:
+        keyboard = make_keyboard([[("📩 پاسخ به این مشتری", f"adm_reply_{order_id}")]])
+    return send_message(ADMIN_CHAT_ID, text, keyboard)
 
 
 # ---------------------------------------------------------------------------
@@ -300,6 +308,253 @@ def handle_registration(chat_id, text, step):
         if not validate_national_id(text):
             send_message(
                 chat_id,
+                "⚠️ کد ملی باید دقیقاً ۱۰ رقم باشه.\nلطفاً دوباره وارد کنید یا از دکمه «رد کردن» استفاده کنید:",
+                make_keyboard([[("رد کردن (اختیاری)", "skip_national_id")]]),
+            )
+            return
+        finish_registration(chat_id, text.strip())
+
+
+def finish_registration(chat_id, national_id):
+    db.update_user(chat_id, national_id=national_id, step="main_menu")
+    user = db.get_user(chat_id)
+    send_message(chat_id, "✅ ثبت‌نام شما با موفقیت انجام شد!")
+    show_main_menu(chat_id, user.get("name", ""))
+
+
+# ---------------------------------------------------------------------------
+# مدیریت دکمه‌ها (کالبک‌ها)
+# ---------------------------------------------------------------------------
+
+def handle_admin_callback(callback_data):
+    """دکمه‌های تایید/رد پرداخت و پاسخ به مشتری که فقط ادمین می‌بینه."""
+    reply_match = re.match(r"^adm_reply_(\d+)$", callback_data)
+    if reply_match:
+        order_id = int(reply_match.group(1))
+        order = db.get_order(order_id)
+        if not order:
+            send_message(ADMIN_CHAT_ID, "⚠️ سفارش موردنظر پیدا نشد.")
+            return
+        ADMIN_PENDING_REPLY["order_id"] = order_id
+        send_message(
+            ADMIN_CHAT_ID,
+            f"✍️ حالا پیام خودتون رو بنویسید تا مستقیم برای مشتری سفارش #{order_id} ارسال بشه.\n"
+            f"(برای لغو، دستور /cancel_reply رو بفرستید)",
+        )
+        return
+
+    match = re.match(r"^adm_(confirm|reject)_(\d+)$", callback_data)
+    if not match:
+        return
+    action, order_id = match.group(1), int(match.group(2))
+    order = db.get_order(order_id)
+    if not order:
+        send_message(ADMIN_CHAT_ID, "⚠️ سفارش موردنظر پیدا نشد.")
+        return
+
+    user_chat_id = order["chat_id"]
+
+    if action == "confirm":
+        db.set_order_status(order_id, "confirmed")
+        send_message(
+            user_chat_id,
+            "✅ پرداخت شما تایید شد!\nدرخواست شما در حال پیگیریه و به‌زودی نتیجه اطلاع داده می‌شه.",
+        )
+        send_message(ADMIN_CHAT_ID, f"✅ سفارش #{order_id} تایید شد.")
+    else:
+        db.set_order_status(order_id, "rejected")
+        send_message(
+            user_chat_id,
+            "❌ متاسفانه رسید پرداخت شما تایید نشد.\n"
+            "لطفاً از صحت واریزی مطمئن بشید و دوباره تصویر رسید رو ارسال کنید، "
+            f"یا برای پیگیری با {SUPPORT_PHONE} تماس بگیرید.",
+        )
+        send_message(ADMIN_CHAT_ID, f"❌ سفارش #{order_id} رد شد.")
+
+
+def handle_callback(chat_id, callback_data):
+    if chat_id == ADMIN_CHAT_ID and callback_data.startswith("adm_"):
+        handle_admin_callback(callback_data)
+        return
+
+    user = db.get_user(chat_id)
+    if not user:
+        return
+
+    if callback_data == "back_main":
+        db.update_user(chat_id, step="main_menu")
+        show_main_menu(chat_id, user.get("name", ""))
+
+    elif callback_data == "skip_national_id":
+        finish_registration(chat_id, "ثبت نشده")
+
+    elif callback_data == "menu_1":
+        db.update_user(chat_id, step="question_menu")
+        handle_question_menu(chat_id)
+
+    elif callback_data == "menu_2":
+        db.update_user(chat_id, step="document_menu")
+        handle_document_menu(chat_id)
+
+    elif callback_data == "menu_3":
+        db.update_user(chat_id, step="case_menu")
+        handle_case_menu(chat_id)
+
+    elif callback_data == "menu_4":
+        handle_payment_follow(chat_id)
+
+    elif callback_data == "menu_5":
+        show_prices(chat_id)
+
+    elif callback_data in ("q_general", "q_special"):
+        is_general = callback_data == "q_general"
+        q_type = "عمومی" if is_general else "تخصصی"
+        q_price = "۵۰,۰۰۰" if is_general else "۵۰۰,۰۰۰"
+        order_id = db.create_order(chat_id, f"سوال {q_type}", price=q_price)
+        db.update_user(
+            chat_id,
+            step="waiting_payment_question",
+            question_type=q_type,
+            question_price=q_price,
+            current_order_id=order_id,
+        )
+        send_message(chat_id, payment_request_text(f"پرسش {q_type}", q_price))
+
+    elif callback_data in DOCUMENT_NAMES:
+        doc_name, doc_price = DOCUMENT_NAMES[callback_data]
+        order_id = db.create_order(chat_id, f"سند {doc_name}", price=doc_price)
+        db.update_user(
+            chat_id,
+            step="waiting_payment_document",
+            document_type=doc_name,
+            document_price=doc_price,
+            current_order_id=order_id,
+        )
+        send_message(chat_id, payment_request_text(doc_name, doc_price))
+
+    elif callback_data in ("case_arbitration", "case_civil"):
+        case_type = "داوری" if callback_data == "case_arbitration" else "وکالت مدنی"
+        order_id = db.create_order(chat_id, f"پرونده {case_type}")
+        db.update_user(chat_id, step="case_detail", case_type=case_type, current_order_id=order_id)
+        send_message(
+            chat_id,
+            f"⚖️ پرونده {case_type}\n\nلطفاً توضیح مختصری از موضوع پرونده‌تون بنویسید:",
+        )
+
+
+# ---------------------------------------------------------------------------
+# مدیریت پیام‌های متنی و عکس
+# ---------------------------------------------------------------------------
+
+def back_to_menu_keyboard():
+    return make_keyboard([[("🔙 بازگشت به منوی اصلی", "back_main")]])
+
+
+def handle_text_message(chat_id, text, photo, photo_file_id=None):
+    user = db.get_user(chat_id)
+    step = user.get("step", "main_menu")
+
+    if step in ("get_name", "get_family", "get_phone", "get_national_id"):
+        handle_registration(chat_id, text, step)
+
+    elif step == "case_detail":
+        order_id = user.get("current_order_id")
+        if order_id:
+            db.set_order_status(order_id, "pending_review")
+        forward_ok = forward_to_admin(
+            user, f"پرونده {user.get('case_type', '')}", f"📝 توضیحات: {text}", order_id=order_id
+        )
+        db.update_user(chat_id, step="main_menu")
+        if forward_ok:
+            send_message(
+                chat_id,
+                "✅ درخواست شما با موفقیت ثبت شد.\nهمکاران ما در اسرع وقت باهاتون تماس می‌گیرن.",
+                back_to_menu_keyboard(),
+            )
+        else:
+            send_message(
+                chat_id,
+                "⚠️ در ثبت درخواست مشکلی پیش اومد. لطفاً دوباره تلاش کنید یا با پشتیبانی تماس بگیرید.",
+                back_to_menu_keyboard(),
+            )
+
+    elif step == "waiting_payment_question":
+        if not photo or not photo_file_id:
+            send_message(chat_id, "📎 لطفاً تصویر رسید پرداخت رو ارسال کنید:")
+            return
+        order_id = user.get("current_order_id")
+        caption = f"رسید پرداخت — سوال {user.get('question_type', '')} — {user.get('question_price', '')} تومان"
+        sent = forward_photo_to_admin_with_actions(photo_file_id, caption, order_id)
+        if sent:
+            db.attach_receipt(order_id, photo_file_id)
+            db.update_user(chat_id, step="asking_question")
+            send_message(chat_id, "✅ رسید دریافت شد!\n\nحالا لطفاً سوال حقوقی خودتون رو بنویسید:")
+        else:
+            send_message(
+                chat_id,
+                "⚠️ ارسال رسید با مشکل مواجه شد. لطفاً چند لحظه دیگه دوباره تصویر رسید رو ارسال کنید.",
+            )
+
+    elif step == "asking_question":
+        order_id = user.get("current_order_id")
+        if order_id:
+            db.set_order_status(order_id, "pending_review")
+        forward_ok = forward_to_admin(
+            user, f"سوال {user.get('question_type', '')}", f"❓ سوال: {text}", order_id=order_id
+        )
+        db.update_user(chat_id, step="main_menu")
+        if forward_ok:
+            send_message(
+                chat_id,
+                "✅ سوال شما ثبت شد.\nبه‌محض بررسی، پاسخ رو براتون ارسال می‌کنیم.",
+                back_to_menu_keyboard(),
+            )
+        else:
+            send_message(
+                chat_id,
+                "⚠️ در ثبت سوال مشکلی پیش اومد. لطفاً دوباره تلاش کنید.",
+                back_to_menu_keyboard(),
+            )
+
+    elif step == "waiting_payment_document":
+        if not photo or not photo_file_id:
+            send_message(chat_id, "📎 لطفاً تصویر رسید پرداخت رو ارسال کنید:")
+            return
+        order_id = user.get("current_order_id")
+        caption = f"رسید پرداخت — {user.get('document_type', '')} — {user.get('document_price', '')} تومان"
+        sent = forward_photo_to_admin_with_actions(photo_file_id, caption, order_id)
+        if sent:
+            db.attach_receipt(order_id, photo_file_id)
+            db.update_user(chat_id, step="document_detail")
+            send_message(chat_id, "✅ رسید دریافت شد!\n\nحالا لطفاً اطلاعات لازم برای تنظیم سند رو بنویسید:")
+        else:
+            send_message(
+                chat_id,
+                "⚠️ ارسال رسید با مشکل مواجه شد. لطفاً چند لحظه دیگه دوباره تصویر رسید رو ارسال کنید.",
+            )
+
+    elif step == "document_detail":
+        order_id = user.get("current_order_id")
+        if order_id:
+            db.set_order_status(order_id, "pending_review")
+        forward_ok = forward_to_admin(
+            user, f"اطلاعات سند {user.get('document_type', '')}", f"📝 اطلاعات: {text}", order_id=order_id
+        )
+        db.update_user(chat_id, step="main_menu")
+        if forward_ok:
+            send_message(
+                chat_id,
+                "✅ اطلاعات شما ثبت شد.\nسند شما در اسرع وقت تنظیم و ارسال می‌شه.",
+                back_to_menu_keyboard(),
+            )
+        else:
+            send_message(
+                chat_id,
+                "⚠️ در ثبت اطلاعات مشکلی پیش اومد. لطفاً دوباره تلاش کنید.",
+                back_to_menu_keyboard(),
+            )
+
+elif              chat_id,
                 "⚠️ کد ملی باید دقیقاً ۱۰ رقم باشه.\nلطفاً دوباره وارد کنید یا از دکمه «رد کردن» استفاده کنید:",
                 make_keyboard([[("رد کردن (اختیاری)", "skip_national_id")]]),
             )
