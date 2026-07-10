@@ -1,0 +1,34 @@
+name: تست خودکار ربات
+
+# این فایل باعث می‌شه هر بار که فایلی توی گیت‌هاب آپلود/کامیت بشه،
+# خودِ گیت‌هاب (بدون نیاز به نصب چیزی روی گوشی یا کامپیوتر شما) تمام
+# تست‌های پوشه tests/ رو اجرا کنه و نتیجه رو با علامت ✅ یا ❌ کنار
+# همون کامیت نشون بده.
+#
+# برای دیدن نتیجه: توی گیت‌هاب روی تب "Actions" بزنید.
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: دریافت کد
+        uses: actions/checkout@v4
+
+      - name: نصب پایتون
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: نصب وابستگی‌ها
+        run: |
+          pip install -r requirements.txt
+          pip install pytest
+
+      - name: اجرای تست‌ها
+        run: pytest tests/ -v
